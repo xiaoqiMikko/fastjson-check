@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.mikko</groupId>
+  <artifactId>fastjson-check</artifactId>
+  <version>0.1.0</version>
+  <packaging>jar</packaging>
+
+  <name>fastjson-check</name>
+  <description>Offline scanner that finds fastjson in your JARs and tells you if you are exposed to CVE-2026-16723.</description>
+
+  <properties>
+    <!--
+      刻意编到 Java 8：应急排查工具要能直接丢到客户/生产机器上跑，
+      而企业环境里大量 JRE 仍是 8。用 release 而非 source/target，
+      保证不会误用高版本 JDK 的 API。
+    -->
+    <maven.compiler.release>8</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <!--
+    刻意保持零运行时依赖：
+    1. 打出来的 jar 极小，可直接 java -jar 跑，不需要任何部署
+    2. 应急排查工具本身绝不能再往目标环境引入依赖（尤其不能引入 JSON 库 —— 我们查的就是它）
+    仅用 JDK 自带的 java.util.zip 读 jar。
+  -->
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>fastjson-check</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.1</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.22.2</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.3.0</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>io.mikko.fastjsoncheck.Main</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
