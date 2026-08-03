@@ -3,16 +3,30 @@ package io.mikko.fastjsoncheck;
 /**
  * fastjson 版本风险判定规则 —— 本工具的核心业务逻辑。
  *
- * <p>判定依据（截至 2026-08，全部为公开信息）：
+ * <p>判定依据（截至 2026-08-04，全部为公开可核验信息）：
+ *
+ * <p><b>⚠️ 重要更正：官方补丁 1.2.84 已于 2026-07-29 发布。</b>
+ * 早期安全通告（含多家英文安全媒体）称“1.x 已 EOL、无官方补丁、只能迁移到 fastjson2”，
+ * 该说法在 2026-07-29 之后已不成立。核验依据：
+ * <ul>
+ *   <li>Maven 中央仓库 {@code com.alibaba:fastjson:1.2.84} 存在，jar 上传时间 2026-07-29。</li>
+ *   <li>GitHub {@code alibaba/fastjson} release {@code 1.2.84}，发布于 2026-07-29T08:24:51Z。</li>
+ *   <li>关键提交 {@code fix: strengthen autoType type name validation and whitelist verification}
+ *       （2026-07-29T07:02:55Z），正对应本 CVE 的类型解析与白名单校验缺陷。</li>
+ *   <li>1.2.83 发布于 2022-05，此后 1.x 分支四年无提交 —— 1.2.84 是为本漏洞专门破例发布。</li>
+ * </ul>
+ * 注意官方为<b>静默发布</b>：1.2.83 的 release 标题标注了“（安全修复）”，
+ * 而 1.2.84 仅写“1.2.84版本发布”，未提及安全，这是外界普遍未察觉补丁存在的原因。
  *
  * <p><b>fastjson 1.x（com.alibaba:fastjson）</b>
  * <ul>
+ *   <li>1.2.84 及以上：<b>已修复 CVE-2026-16723</b>，是 1.x 用户成本最低的处置路径
+ *       （同分支小版本升级，通常无需改代码）。</li>
  *   <li>1.2.68 ~ 1.2.83：CVE-2026-16723，CVSS 9.0 远程代码执行。
  *       <b>默认配置即可利用</b>，无需开启 AutoType、无需 classpath gadget、无需认证。
- *       官方公告 2026-07-21，数日内即出现在野利用，主要针对 Spring Boot fat-JAR 部署。
- *       <b>1.x 分支已停止维护，官方明确不再发布补丁，GitHub 仓库已归档。</b></li>
+ *       官方公告 2026-07-21，数日内即出现在野利用，主要针对 Spring Boot fat-JAR 部署。</li>
  *   <li>低于 1.2.68：不受 CVE-2026-16723 影响，但存在历史 AutoType 反序列化 RCE 系列漏洞
- *       （1.2.24 / 1.2.47 / 1.2.62 / 1.2.66 等），且同样已 EOL、不再修复。</li>
+ *       （1.2.24 / 1.2.47 / 1.2.62 / 1.2.66 等）。</li>
  * </ul>
  *
  * <p><b>fastjson 2.x（com.alibaba:fastjson2，及 com.alibaba:fastjson 的 2.0.x 兼容包）</b>
@@ -29,8 +43,10 @@ public final class VersionRules {
 
     /** fastjson 1.x 受 CVE-2026-16723 影响的下界（含）。 */
     private static final String CVE_2026_16723_LOWER = "1.2.68";
-    /** fastjson 1.x 受 CVE-2026-16723 影响的上界（含）。1.2.83 是 1.x 的最终版本。 */
+    /** fastjson 1.x 受 CVE-2026-16723 影响的上界（含）。1.2.84 起已修复。 */
     private static final String CVE_2026_16723_UPPER = "1.2.83";
+    /** fastjson 1.x 修复 CVE-2026-16723 的首个版本，2026-07-29 发布。 */
+    private static final String FASTJSON1_FIXED = "1.2.84";
     /** fastjson2 的首个安全版本。 */
     private static final String FASTJSON2_FIXED = "2.0.63";
 
@@ -47,33 +63,48 @@ public final class VersionRules {
         if (version == null || version.trim().isEmpty()) {
             return new Verdict(Severity.UNKNOWN,
                     "无法确定 fastjson 版本",
-                    "请手动确认该 jar 内 fastjson 的版本，再对照 CVE-2026-16723 影响范围（1.2.68~1.2.83）判断。");
+                    "请手动确认该 jar 内 fastjson 的版本，再对照 CVE-2026-16723 影响范围判断："
+                            + "1.2.68~1.2.83 受影响，1.2.84（2026-07-29 官方修复版）起已修复。");
         }
 
         int[] parsed = parse(version);
         if (parsed == null) {
             return new Verdict(Severity.UNKNOWN,
                     "版本号 \"" + version + "\" 无法解析",
-                    "请手动确认版本并对照 CVE-2026-16723 影响范围（1.2.68~1.2.83）判断。");
+                    "请手动确认版本并对照 CVE-2026-16723 影响范围判断："
+                            + "1.2.68~1.2.83 受影响，1.2.84（2026-07-29 官方修复版）起已修复。");
         }
 
         int major = parsed[0];
 
         // ---- fastjson 1.x ----
         if (major == 1) {
+            // 1.2.84（2026-07-29）是官方针对本 CVE 的修复版，优先于区间判定。
+            if (compare(version, FASTJSON1_FIXED) >= 0) {
+                return new Verdict(Severity.OK,
+                        "fastjson " + version + " 已包含 CVE-2026-16723 的官方修复（1.2.84 起）",
+                        "无需紧急处置。长期仍建议迁移至 fastjson2 " + FASTJSON2_FIXED
+                                + " 或更高版本 —— 1.x 属于低维护状态，1.2.84 是为本次漏洞破例发布的，"
+                                + "不代表 1.x 恢复常规维护。");
+            }
+
             boolean inCveRange = compare(version, CVE_2026_16723_LOWER) >= 0
                     && compare(version, CVE_2026_16723_UPPER) <= 0;
             if (inCveRange) {
                 return new Verdict(Severity.CRITICAL,
-                        "命中 CVE-2026-16723（CVSS 9.0 远程代码执行），且官方无补丁",
-                        "1.x 已停止维护，不会有修复版本。应急处置二选一："
-                                + "①（推荐）迁移至 fastjson2 " + FASTJSON2_FIXED + " 或更高版本；"
-                                + "② 无法立即迁移时，先启用 SafeMode 彻底关闭 AutoType 以缓解，但这不是长期方案。");
+                        "命中 CVE-2026-16723（CVSS 9.0 远程代码执行），默认配置即可利用",
+                        "处置按成本从低到高："
+                                + "①（推荐，改动最小）升级至 fastjson " + FASTJSON1_FIXED
+                                + " —— 这是官方 2026-07-29 发布的修复版，同分支小版本升级，通常无需改代码。"
+                                + "注意它是静默发布、release 未标注安全修复，因此多数安全通告仍称“无补丁”，实为过时信息；"
+                                + "② 长期方案：迁移至 fastjson2 " + FASTJSON2_FIXED + " 或更高版本；"
+                                + "③ 上述两条都无法立即执行时，先启用 SafeMode 彻底关闭 AutoType 以缓解，但这不是长期方案。");
             }
+
             return new Verdict(Severity.HIGH,
-                    "fastjson 1.x 已停止维护（仓库已归档，官方不再修复）",
-                    "当前版本不在 CVE-2026-16723 的 1.2.68~1.2.83 区间内，但 1.x 存在历史 AutoType "
-                            + "反序列化 RCE 系列漏洞且永不再修。建议迁移至 fastjson2 "
+                    "fastjson " + version + " 低于 1.2.68，不受 CVE-2026-16723 影响，但存在历史 AutoType 反序列化 RCE",
+                    "不受本次 CVE 影响，但 1.2.24 / 1.2.47 / 1.2.62 / 1.2.66 等历史 AutoType 绕过链适用于该版本。"
+                            + "建议升级至 fastjson " + FASTJSON1_FIXED + "，或迁移至 fastjson2 "
                             + FASTJSON2_FIXED + " 或更高版本。");
         }
 
