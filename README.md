@@ -19,8 +19,26 @@
 
 - 影响 **fastjson 1.2.68 ~ 1.2.83**
 - **默认配置即可利用** —— 不需要开启 AutoType，不需要 classpath gadget，不需要认证
-- **官方不会发布补丁**。fastjson 1.x 已停止维护，GitHub 仓库已归档
 - 公告数日内即出现在野利用，主要针对 **Spring Boot fat-JAR** 部署
+
+### ⚠️ 官方补丁 1.2.84 已发布，但几乎没人知道
+
+大量安全通告（含多家英文安全媒体）至今仍称「1.x 已 EOL、**永远不会有补丁**、只能迁移到 fastjson2」。
+**该说法自 2026-07-29 起已不成立。** 可自行核验：
+
+| 证据 | 链接 |
+|---|---|
+| Maven 中央仓库有 `com.alibaba:fastjson:1.2.84`，jar 上传于 2026-07-29 | [repo1](https://repo1.maven.org/maven2/com/alibaba/fastjson/1.2.84/) |
+| GitHub release `1.2.84`，发布于 2026-07-29T08:24:51Z | [release](https://github.com/alibaba/fastjson/releases/tag/1.2.84) |
+| 关键提交 `fix: strengthen autoType type name validation and whitelist verification` | 2026-07-29T07:02:55Z |
+
+1.2.83 发布于 2022 年 5 月，此后 1.x 分支**四年无提交** —— 1.2.84 是为本次漏洞专门破例发布的。
+
+**为什么外界不知道**：官方是**静默发布**。1.2.83 的 release 标题标注了「（安全修复）」，
+而 1.2.84 只写「1.2.84版本发布」，全文未提安全，因此没有被安全媒体和扫描器及时跟进。
+
+👉 **对 1.x 用户的实际影响**：升级到 **1.2.84** 是成本最低的处置（同分支小版本，通常无需改代码），
+不必被迫立刻做 fastjson2 的大版本迁移。本工具已按此给出建议。
 
 而最麻烦的一点是：
 
@@ -65,7 +83,7 @@ fastjson-check 0.1.0  —— fastjson 应急排查（离线，不外传任何数
   位置　　：myapp.jar!/BOOT-INF/lib/fastjson-1.2.83.jar
   版本来源：pom.properties
   场景　　：Spring Boot fat-JAR  ← CVE-2026-16723 的主要在野利用场景
-  结论　　：命中 CVE-2026-16723（CVSS 9.0 远程代码执行），且官方无补丁
+  结论　　：命中 CVE-2026-16723（CVSS 9.0 远程代码执行），默认配置即可利用
   处置　　：1.x 已停止维护，不会有修复版本。应急处置二选一：①（推荐）迁移至
             fastjson2 2.0.63 或更高版本；② 无法立即迁移时，先启用 SafeMode
             彻底关闭 AutoType 以缓解，但这不是长期方案。
@@ -86,8 +104,9 @@ fastjson-check 0.1.0  —— fastjson 应急排查（离线，不外传任何数
 
 | 版本 | 判定 | 说明 |
 |---|---|---|
-| fastjson **1.2.68 ~ 1.2.83** | 🔴 CRITICAL | 命中 CVE-2026-16723，官方无补丁 |
-| fastjson 1.x 其他版本 | 🟠 HIGH | 不中本次 CVE，但 1.x 已 EOL，且有历史 AutoType RCE 系列漏洞 |
+| fastjson **1.2.68 ~ 1.2.83** | 🔴 CRITICAL | 命中 CVE-2026-16723，**升 1.2.84 即可修复** |
+| fastjson **≥ 1.2.84** | 🟢 OK | 已含官方修复（2026-07-29 发布） |
+| fastjson **&lt; 1.2.68** | 🟠 HIGH | 不中本次 CVE，但有历史 AutoType RCE 系列漏洞 |
 | fastjson2 **≤ 2.0.62** | 🔴 CRITICAL | 多态反序列化 RCE（seeAlso 路径），默认配置即可触发 |
 | fastjson2 **≥ 2.0.63** | 🟢 OK | 当前推荐版本 |
 
@@ -163,8 +182,30 @@ On 2026-07-21 a remote code execution flaw in fastjson was disclosed as **CVE-20
 
 - Affects **fastjson 1.2.68 – 1.2.83**
 - Exploitable under **stock default configuration** — no AutoType, no classpath gadget, no authentication needed
-- **No patch will ever ship.** fastjson 1.x is end-of-life and its repository is archived
 - Exploited in the wild within days, primarily against **Spring Boot fat-JAR** deployments
+
+### ⚠️ A patch does exist: 1.2.84. Almost nobody knows.
+
+Most advisories — including major security outlets — still state that fastjson 1.x is EOL,
+that **no patch will ever ship**, and that migrating to fastjson2 is the only option.
+**That has been untrue since 2026-07-29.** Verify it yourself:
+
+| Evidence | Link |
+|---|---|
+| `com.alibaba:fastjson:1.2.84` on Maven Central, jar uploaded 2026-07-29 | [repo1](https://repo1.maven.org/maven2/com/alibaba/fastjson/1.2.84/) |
+| GitHub release `1.2.84`, published 2026-07-29T08:24:51Z | [release](https://github.com/alibaba/fastjson/releases/tag/1.2.84) |
+| Commit `fix: strengthen autoType type name validation and whitelist verification` | 2026-07-29T07:02:55Z |
+
+1.2.83 shipped in May 2022. The 1.x branch then saw **no commits for four years** —
+1.2.84 was cut specifically for this vulnerability.
+
+**Why it went unnoticed:** it was a *silent* release. The 1.2.83 release is titled
+"（安全修复）" — *security fix*. The 1.2.84 release is titled merely "1.2.84版本发布"
+and never mentions security, so trackers and media did not pick it up.
+
+👉 **What this means for you:** upgrading to **1.2.84** is a patch-level bump on the same
+branch and usually requires no code changes. You are not forced into an immediate
+fastjson2 major migration. This tool recommends accordingly.
 
 The hard part:
 
@@ -188,8 +229,9 @@ Exit code `0` = nothing actionable, `1` = CRITICAL/HIGH found, `2` = usage error
 
 | Version | Verdict |
 |---|---|
-| fastjson **1.2.68 – 1.2.83** | CRITICAL — CVE-2026-16723, no patch available |
-| fastjson 1.x, other versions | HIGH — EOL, historic AutoType RCE issues |
+| fastjson **1.2.68 – 1.2.83** | CRITICAL — CVE-2026-16723, **fixed by upgrading to 1.2.84** |
+| fastjson **≥ 1.2.84** | OK — contains the official fix (released 2026-07-29) |
+| fastjson **&lt; 1.2.68** | HIGH — not this CVE, but historic AutoType RCE issues |
 | fastjson2 **≤ 2.0.62** | CRITICAL — polymorphic deserialization RCE |
 | fastjson2 **≥ 2.0.63** | OK |
 
