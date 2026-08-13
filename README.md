@@ -162,6 +162,22 @@ mvn clean package
 
 功能建议、新的 fastjson 相关 CVE、企业批量排查场景的需求，同样欢迎开 issue 讨论。
 
+<!-- cta:hire -->
+
+---
+
+## 需要更进一步的排查?
+
+这个工具回答的是「**我中没中**」。下面这些它答不了,可以找我做:
+
+- 依赖被 shade / relocate 过,或者构建产物根本拿不到
+- 要判的是「这条 CVE 在**我们的调用链上**到底会不会触发」,而不只是版本命中
+- 要按你们自己的构建流程或内网环境做定制、接进现有流水线
+- 手上是**另一个**组件的同类问题,还没有现成工具
+
+📮 **sikongjuechen@gmail.com** —— 说清情况,我 24 小时内给你一页书面答复:
+能不能做、难在哪、大概多久。**这一步免费,也不用你先承诺什么。**
+
 ## 许可证
 
 Apache License 2.0
@@ -247,3 +263,19 @@ Exit code `0` = nothing actionable, `1` = CRITICAL/HIGH found, `2` = usage error
 ## License
 
 Apache License 2.0
+
+<!-- cta:hire-en -->
+
+---
+
+## Need something this tool cannot answer?
+
+This scanner answers one question: **am I affected?** These it cannot answer — I can:
+
+- dependencies that were shaded/relocated, or build artifacts you cannot obtain
+- whether the CVE is actually **reachable in your call graph**, not just version-matched
+- adapting it to your build process, air-gapped environment, or existing pipeline
+- the same class of problem in **another** component, with no tool for it yet
+
+📮 **sikongjuechen@gmail.com** — describe the situation and you get a one-page written
+answer within 24h: feasible or not, where it is hard, roughly how long. **Free, no commitment.**
