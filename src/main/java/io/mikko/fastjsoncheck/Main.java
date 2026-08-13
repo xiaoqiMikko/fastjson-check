@@ -23,7 +23,10 @@ import java.util.Map;
  */
 public final class Main {
 
-    static final String VERSION = "0.2.0";
+    // ⚠️ 与 pom 的 <version> 是**两份**，改 pom 时没有任何东西会提醒你同步，而且漂移时零报错。
+    //    （spring-eol-check 0.2.0 就这么打印过 0.1.0。）
+    //    根治办法是从 MANIFEST 的 Implementation-Version 读 —— 那是下一步，先把两处对齐。
+    static final String VERSION = "0.3.0";
 
     private static final int EXIT_OK = 0;
     private static final int EXIT_FOUND = 1;
@@ -37,8 +40,12 @@ public final class Main {
      * 控制台实际是 65001/UTF-8），中文就会变成乱码。
      * 默认沿用平台编码（覆盖标准中文 Windows 与 Linux 两种常见情况），
      * 乱码时用 {@code --utf8} 或 {@code --gbk} 手动指定。
+     *
+     * <p>🔴 <b>package-private（不是 private）</b>：插件模式（{@link ScanMojo}）要把它临时换成
+     * UTF-8 缓冲、渲染完再复原。CLI 的 {@code --utf8/--gbk} 开关在插件模式下够不着，
+     * 而报告是中文 —— 走 {@code System.out} 在 GBK 平台上必然乱码。
      */
-    private static PrintStream out = System.out;
+    static PrintStream out = System.out;
 
     public static void main(String[] args) {
         List<String> targets = new ArrayList<String>();
@@ -109,7 +116,9 @@ public final class Main {
 
     // ---------------- 控制台报告 ----------------
 
-    private static void printReport(List<String> targets, JarScanner scanner,
+    // package-private：插件模式复用同一套渲染，保证 CLI 与插件的报告逐字一致
+    // —— 两份渲染代码必然漂移，而漂移时没有任何东西会报错。
+    static void printReport(List<String> targets, JarScanner scanner,
                                     List<Detection> found, boolean color) {
         out.println();
         out.println("fastjson-check " + VERSION + "  —— fastjson 应急排查（离线，不外传任何数据）");

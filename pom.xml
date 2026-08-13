@@ -4,13 +4,52 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>io.mikko</groupId>
+  <!--
+    🔴 groupId 用 io.github.<GitHub 用户名>，不是原来自造的 io.mikko —— 这是能不能发上 Maven Central 的关键：
+       Central 要求 namespace 可验证。自有域名要改 DNS TXT；而 io.github.* 把验证转嫁给 GitHub，
+       用 GitHub 账号注册 Sonatype 时会自动授予该 namespace。
+    🔴 **必须全小写** io.github.xiaoqimikko，即使 GitHub 用户名是 xiaoqiMikko（带大写 M）。
+       由来（spring-eol-check 2026-08-12 实测）：按原样大小写传上去，Central 校验直接退回
+       `Namespace 'io.github.xiaoqiMikko' is not allowed` —— Sonatype 把 namespace 规范化成了小写。
+       失败发生在校验阶段，不会有半成品发布出去，但会白跑一轮。
+    ⚠️ 换 groupId 不影响任何现有用户：本工具此前只发过 GitHub Release（jar 直接下载），
+       从未发布到任何 Maven 仓库，io.mikko 这个坐标没有人能引用到。
+  -->
+  <groupId>io.github.xiaoqimikko</groupId>
   <artifactId>fastjson-check</artifactId>
-  <version>0.2.0</version>
-  <packaging>jar</packaging>
+  <version>0.3.0</version>
+  <!--
+    packaging 从 jar 改成 maven-plugin（0.3.0 新增插件形态）。
+    ⚠️ 产出的**仍然是一个普通 jar**，只是多了 META-INF/maven/plugin.xml 描述符，
+       maven-jar-plugin 的 Main-Class 配置照旧生效 —— 所以 `java -jar` 的 CLI 用法不受影响，
+       一个构件同时是「CLI 工具」和「Maven 插件」。
+  -->
+  <packaging>maven-plugin</packaging>
 
   <name>fastjson-check</name>
   <description>Offline scanner that finds fastjson in your JARs and tells you if you are exposed to CVE-2026-16723.</description>
+  <url>https://github.com/xiaoqiMikko/fastjson-check</url>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>xiaoqiMikko</id>
+      <name>Mikko</name>
+      <url>https://github.com/xiaoqiMikko</url>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:https://github.com/xiaoqiMikko/fastjson-check.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/xiaoqiMikko/fastjson-check.git</developerConnection>
+    <url>https://github.com/xiaoqiMikko/fastjson-check</url>
+  </scm>
 
   <properties>
     <!--
@@ -20,6 +59,11 @@
     -->
     <maven.compiler.release>8</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!--
+      插件 API 的版本。3.6.3 是刻意压低的：它决定了「用户的 Maven 至少要多新」。
+      压到 3.6.3 = Maven 3.6+ 都能用，与本工具「丢到老机器上也能跑」的定位一致。
+    -->
+    <maven.api.version>3.6.3</maven.api.version>
   </properties>
 
   <!--
@@ -34,6 +78,32 @@
       <artifactId>junit</artifactId>
       <version>4.13.2</version>
       <scope>test</scope>
+    </dependency>
+
+    <!--
+      🔴 以下三个全是 provided —— 它们由运行插件的那个 Maven 自己提供，**不会被打进 jar**。
+         所以上面那句「零运行时依赖」没有被破坏：`java -jar` 走 CLI 时根本不加载 ScanMojo，
+         也就碰不到这些 API。
+    -->
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-plugin-api</artifactId>
+      <version>${maven.api.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <!-- MavenProject（拿解析后的依赖树）在 maven-core 里 -->
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-core</artifactId>
+      <version>${maven.api.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <!-- @Mojo / @Parameter 注解，只在编译期用 -->
+    <dependency>
+      <groupId>org.apache.maven.plugin-tools</groupId>
+      <artifactId>maven-plugin-annotations</artifactId>
+      <version>3.6.0</version>
+      <scope>provided</scope>
     </dependency>
   </dependencies>
 
@@ -62,6 +132,80 @@
           </archive>
         </configuration>
       </plugin>
+      <!--
+        生成 META-INF/maven/plugin.xml。
+        ⚠️ goalPrefix 必须显式给：自动推导的规则是 artifactId 形如 `xxx-maven-plugin`，
+           而我们叫 `fastjson-check`（要和已发布的 Release、两篇文章、仓库名保持一致，不改名），
+           不显式设就会告警并推出一个难看的前缀。
+        用户的主流用法是在 pom 里配 <plugin> 绑生命周期，那种用法根本不经过 goalPrefix；
+        前缀只影响命令行直呼 `mvn fastjson:check`。
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-plugin-plugin</artifactId>
+        <version>3.6.0</version>
+        <configuration>
+          <goalPrefix>fastjson</goalPrefix>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
+
+  <!--
+    🔴 发 Maven Central 才需要的三件套，单独放 profile —— 日常构建不跑（javadoc 慢、gpg 要密钥）。
+       发布时：mvn -Prelease clean verify
+       🔴 **必须是 verify，不能是 package** —— gpg 的 sign 绑在 verify 阶段（见下方 execution），
+          跑 package 会安安静静地产出**没有 .asc 的三件套**，而 Central 校验时才退回。
+          由来：spring-eol-check 0.2.1 发布时照着写错的说明跑 `package`，产物里一个签名都没有。
+  -->
+  <profiles>
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>3.2.1</version>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals><goal>jar-no-fork</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>3.4.1</version>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals><goal>jar</goal></goals>
+              </execution>
+            </executions>
+            <configuration>
+              <!-- 源码注释是中文，不指定就按平台默认编码读，javadoc 里全是乱码 -->
+              <encoding>UTF-8</encoding>
+              <charset>UTF-8</charset>
+              <docencoding>UTF-8</docencoding>
+              <doclint>none</doclint>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>3.0.1</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals><goal>sign</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
