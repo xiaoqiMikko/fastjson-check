@@ -109,9 +109,12 @@ public class ScanMojo extends AbstractMojo {
         //    (spring-eol-check 0.2.1 踩过的同一条:关掉一条会误导的信息,不等于什么都不说。)
         if (actionable > 0 && !failOnFound) {
             getLog().info("");
-            getLog().info("ℹ️ 上面有 CRITICAL/HIGH 级别的发现,但本次**没有**让构建失败"
+            // ⚠️ 这里**不要用 emoji**(原本写的是 ℹ️)：真实构件复验实测，GBK 控制台下它会显示成 `??`，
+            //    看起来像乱码或 bug —— 一个自查工具的输出出现疑似乱码，会直接削弱它的可信度。
+            //    报告里只用目标环境一定表示得了的字符。
+            getLog().info("注意：上面有 CRITICAL/HIGH 级别的发现，但本次**没有**让构建失败"
                     + " —— fastjson-check.failOnFound 默认就是 false。");
-            getLog().info("   要把它当成 CI 门禁,加 -Dfastjson-check.failOnFound=true。");
+            getLog().info("      要把它当成 CI 门禁，加 -Dfastjson-check.failOnFound=true。");
         }
 
         if (failOnFound && actionable > 0) {

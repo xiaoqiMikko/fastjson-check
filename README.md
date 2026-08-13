@@ -69,6 +69,62 @@ java -jar fastjson-check.jar /opt/apps --json
 
 不需要安装、不需要账号、不联网、不上传任何数据。
 
+## 作为 Maven 插件跑（0.3.0 起）
+
+同一个构件既是 CLI 也是 Maven 插件。这种用法**不需要先下载 jar**：
+
+```bash
+# 在你的项目目录下直接跑，扫的是 Maven 解析后的依赖
+mvn io.github.xiaoqimikko:fastjson-check:0.3.0:check
+```
+
+或者绑进构建生命周期（`verify` 阶段）：
+
+```xml
+<plugin>
+  <groupId>io.github.xiaoqimikko</groupId>
+  <artifactId>fastjson-check</artifactId>
+  <version>0.3.0</version>
+  <executions>
+    <execution>
+      <goals><goal>check</goal></goals>
+    </execution>
+  </executions>
+</plugin>
+```
+
+### 为什么插件模式比让 CLI 扫 `pom.xml` 更准
+
+CLI 扫 `pom.xml` 时读到的是**文本**，而真实项目里 fastjson 的版本常常不在那段文本里：
+
+- 写成属性：`<version>${fastjson.version}</version>`
+- 继承自 `<parent>`，你自己的 pom 里没有这一行
+- **最常见的一种：它是别的库带进来的传递依赖，你的 pom 里压根没提过 fastjson**
+
+插件拿到的是 Maven **解析完成之后**的依赖集合，每个依赖都带着本地仓库里的真实 jar 路径。
+于是走的正是本工具最擅长的那条路：**扫真 jar 里的 `com/alibaba/fastjson(2)/JSON.class`**，
+而不是相信 pom 上写了什么。
+
+⚠️ **但识别边界没有因此改变**：判定键仍然是那个 class 路径，所以
+**被 relocate / 改包名重打包的依赖依然识别不出来**（见下方「它不是什么」）。
+插件解决的是「版本写在哪」，不是「包名被改了」。
+
+### 参数
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `-Dfastjson-check.failOnFound` | `false` | 发现 CRITICAL / HIGH 时让构建失败 |
+| `-Dfastjson-check.path` | 不设 | 不扫依赖树，改扫这个路径（目录 / jar / war / fat-jar） |
+| `-Dfastjson-check.skip` | `false` | 跳过执行 |
+
+🔴 **默认不让构建失败，这是刻意的**，和 CLI 的退出码语义不同：
+命令行是你自己敲的，退出码 1 正是你要的；而插件是挂在流水线上的，
+一个自查工具不该在你毫无准备的时候把构建打红。要当 CI 门禁，显式加
+`-Dfastjson-check.failOnFound=true`。
+
+> 💡 Windows 上如果报告是乱码，把控制台切回 GBK（`chcp 936`）——
+> 插件模式的输出编码由 Maven 决定，CLI 的 `--utf8` / `--gbk` 开关在这里够不着。
+
 ## 输出长这样
 
 ```
@@ -240,6 +296,62 @@ java -jar fastjson-check.jar /opt/apps --json
 ```
 
 Exit code `0` = nothing actionable, `1` = CRITICAL/HIGH found, `2` = usage error.
+
+## Maven plugin (since 0.3.0)
+
+The same artifact is both a CLI and a Maven plugin. This usage needs no download:
+
+```bash
+# run inside your project — it scans Maven's *resolved* dependencies
+mvn io.github.xiaoqimikko:fastjson-check:0.3.0:check
+```
+
+Or bind it to the build (`verify` phase):
+
+```xml
+<plugin>
+  <groupId>io.github.xiaoqimikko</groupId>
+  <artifactId>fastjson-check</artifactId>
+  <version>0.3.0</version>
+  <executions>
+    <execution>
+      <goals><goal>check</goal></goals>
+    </execution>
+  </executions>
+</plugin>
+```
+
+### Why the plugin is more accurate than pointing the CLI at `pom.xml`
+
+Reading `pom.xml` means reading **text**, and in real projects the fastjson version is often not in that text:
+
+- declared as a property: `<version>${fastjson.version}</version>`
+- inherited from a `<parent>` your own pom does not spell out
+- **most common of all: it arrives as a transitive dependency — your pom never mentions fastjson at all**
+
+The plugin receives the dependency set **after Maven has resolved it**, each entry carrying the real
+jar path in your local repository. That is exactly what this tool is best at: it looks inside the
+**actual jars** for `com/alibaba/fastjson(2)/JSON.class` rather than trusting what a pom claims.
+
+⚠️ **The detection boundary is unchanged**: the key is still that class path, so dependencies that were
+**relocated / repackaged under a different name remain invisible** (see Limitations).
+The plugin solves "where is the version declared", not "the package was renamed".
+
+### Parameters
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `-Dfastjson-check.failOnFound` | `false` | fail the build when CRITICAL / HIGH is found |
+| `-Dfastjson-check.path` | unset | scan this path instead of the dependency tree (dir / jar / war / fat-jar) |
+| `-Dfastjson-check.skip` | `false` | skip execution |
+
+🔴 **Not failing the build by default is deliberate**, and intentionally differs from the CLI exit code:
+a command line is something you typed yourself, so exit code 1 is what you asked for; a plugin runs
+inside someone's pipeline, and a self-check tool should not turn a build red when you were not
+expecting it. To use it as a CI gate, pass `-Dfastjson-check.failOnFound=true` explicitly.
+
+> 💡 On Windows, if the report shows mojibake, switch the console back to GBK (`chcp 936`) — in plugin
+> mode the output encoding is Maven's decision, and the CLI's `--utf8` / `--gbk` switches cannot reach it.
 
 ## Verdicts
 
