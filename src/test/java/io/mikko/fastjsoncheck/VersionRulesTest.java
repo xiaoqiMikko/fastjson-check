@@ -52,7 +52,7 @@ public class VersionRulesTest {
         assertEquals(Severity.CRITICAL, VersionRules.judge("1.2.70-SNAPSHOT").severity);
     }
 
-    // ---- fastjson 1.2.84：官方修复版（2026-07-29 静默发布） ----
+    // ---- fastjson 1.2.84：官方修复版（2026-07-29 发布） ----
 
     /**
      * 回归测试：1.2.84 是官方针对 CVE-2026-16723 的修复版，必须判 OK。
