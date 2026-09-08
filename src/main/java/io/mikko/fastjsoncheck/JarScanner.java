@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PushbackInputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -109,6 +110,18 @@ public class JarScanner {
     }
 
     /**
+     * zip 魔数校验。空 zip（{@code PK\05\06}）是合法的、真的没有条目，
+     * 必须与「不是 zip」分开，否则每个空 jar 都会变成一条假告警。
+     *
+     * @param n 实际读到的字节数；不足 4 一律不是 zip
+     */
+    static boolean looksLikeZip(byte[] b, int n) {
+        if (b == null || n < 4 || b[0] != 'P' || b[1] != 'K') return false;
+        int c = b[2], d = b[3];
+        return (c == 3 && d == 4) || (c == 5 && d == 6) || (c == 7 && d == 8);
+    }
+
+    /**
      * 扫描一个归档流。
      *
      * @param in          归档内容流
@@ -125,6 +138,29 @@ public class JarScanner {
             warnings.add("嵌套层级超过上限，已停止深入：" + location);
             return;
         }
+
+        // ☠️ ZipInputStream 对非 zip 内容不抛异常，只是一个条目都不给（2026-09-08 实测）。
+        //    不拦的话，损坏/加密/根本不是 zip 的 .jar 会静默走完扫描并得出「未发现 fastjson」，
+        //    而那句话读起来就是「你不受影响」。**「读不动」和「你是安全的」必须是两句话。**
+        //    🔴 这个坑第 10 注（log4j-check）实测记过并在那一注加了防线，但后续各注的扫描
+        //    代码是从别处复制来的，防线没跟着传下来。
+        PushbackInputStream pin = new PushbackInputStream(in, 4);
+        byte[] head = new byte[4];
+        int got = 0;
+        while (got < 4) {
+            int r = pin.read(head, got, 4 - got);   // 🔴 Java 8 target，没有 readNBytes
+            if (r < 0) break;
+            got += r;
+        }
+        if (got > 0) {
+            pin.unread(head, 0, got);
+        }
+        if (!looksLikeZip(head, got)) {
+            warnings.add("这个文件读不动，不是有效的 zip/jar：" + location
+                    + "（截断、加密，或其实是个 HTML 错误页）—— 🔴 这不等于「里面没有 fastjson」");
+            return;
+        }
+
         scannedArchives++;
 
         boolean hasV1Marker = false;
@@ -135,9 +171,11 @@ public class JarScanner {
         // 嵌套 jar 要等外层遍历完再处理，先缓存起来（同一个 ZipInputStream 不能并发读）
         List<NestedArchive> nested = new ArrayList<NestedArchive>();
 
-        ZipInputStream zis = new ZipInputStream(in);
+        int entries = 0;
+        ZipInputStream zis = new ZipInputStream(pin);
         ZipEntry entry;
         while ((entry = zis.getNextEntry()) != null) {
+            entries++;
             String name = entry.getName();
 
             if (name.startsWith("BOOT-INF/")) {
@@ -164,6 +202,16 @@ public class JarScanner {
                     nested.add(new NestedArchive(name, bytes));
                 }
             }
+        }
+
+        // 🔴 第二层防线:魔数对、也没抛异常,但一个条目都没解出来。
+        //    ☠️ 2026-09-08 实测:魔数校验只挡住一半 —— PK 03 04 开头但**内容截断**的
+        //    文件魔数是对的、ZipInputStream 也不抛异常,只是零条目。
+        //    合法的空 zip 以 PK 05 06 开头(一条 22 字节的 EOCD 记录),那是真的空,不报。
+        if (entries == 0 && !(head[2] == 5 && head[3] == 6)) {
+            warnings.add("这个文件魔数像 zip，但一个条目都解不出来(多半是截断或下载不全)：" + location
+                    + " —— 🔴 这不等于「里面没有 fastjson」");
+            return;
         }
 
         boolean fatJarContext = springBootFatJar || inFatJar;
