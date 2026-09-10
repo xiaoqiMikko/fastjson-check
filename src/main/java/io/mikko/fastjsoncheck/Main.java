@@ -34,7 +34,7 @@ public final class Main {
     // ⚠️ 与 pom 的 <version> 是**两份**，改 pom 时没有任何东西会提醒你同步，而且漂移时零报错。
     //    （spring-eol-check 0.2.0 就这么打印过 0.1.0。）
     //    根治办法是从 MANIFEST 的 Implementation-Version 读 —— 那是下一步，先把两处对齐。
-    static final String VERSION = "0.3.0";
+    static final String VERSION = "0.3.1";
 
     private static final int EXIT_OK = 0;
     private static final int EXIT_FOUND = 1;

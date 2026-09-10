@@ -17,7 +17,7 @@
   -->
   <groupId>io.github.xiaoqimikko</groupId>
   <artifactId>fastjson-check</artifactId>
-  <version>0.3.0</version>
+  <version>0.3.1</version>
   <!--
     packaging 从 jar 改成 maven-plugin（0.3.0 新增插件形态）。
     ⚠️ 产出的**仍然是一个普通 jar**，只是多了 META-INF/maven/plugin.xml 描述符，
