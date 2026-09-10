@@ -81,7 +81,7 @@ java -jar fastjson-check.jar /opt/apps --json
 
 ```bash
 # 在你的项目目录下直接跑，扫的是 Maven 解析后的依赖
-mvn io.github.xiaoqimikko:fastjson-check:0.3.0:check
+mvn io.github.xiaoqimikko:fastjson-check:0.3.1:check
 ```
 
 或者绑进构建生命周期（`verify` 阶段）：
@@ -90,7 +90,7 @@ mvn io.github.xiaoqimikko:fastjson-check:0.3.0:check
 <plugin>
   <groupId>io.github.xiaoqimikko</groupId>
   <artifactId>fastjson-check</artifactId>
-  <version>0.3.0</version>
+  <version>0.3.1</version>
   <executions>
     <execution>
       <goals><goal>check</goal></goals>
@@ -309,7 +309,7 @@ The same artifact is both a CLI and a Maven plugin. This usage needs no download
 
 ```bash
 # run inside your project — it scans Maven's *resolved* dependencies
-mvn io.github.xiaoqimikko:fastjson-check:0.3.0:check
+mvn io.github.xiaoqimikko:fastjson-check:0.3.1:check
 ```
 
 Or bind it to the build (`verify` phase):
@@ -318,7 +318,7 @@ Or bind it to the build (`verify` phase):
 <plugin>
   <groupId>io.github.xiaoqimikko</groupId>
   <artifactId>fastjson-check</artifactId>
-  <version>0.3.0</version>
+  <version>0.3.1</version>
   <executions>
     <execution>
       <goals><goal>check</goal></goals>
