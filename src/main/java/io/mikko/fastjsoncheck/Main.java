@@ -19,7 +19,15 @@ import java.util.Map;
  *   java -jar fastjson-check.jar &lt;路径&gt; [更多路径...] [选项]
  * </pre>
  *
- * <p>退出码：0 = 未发现需处理项；1 = 发现 CRITICAL/HIGH（便于 CI 卡门禁）；2 = 用法错误。
+ * <p>退出码：0 = 未发现需处理项；1 = 发现 CRITICAL/HIGH（便于 CI 卡门禁）；2 = 用法错误；
+ * <b>4 = 有文件读不动</b>（2026-09-10 加）。
+ *
+ * <p>🔴 <b>4 的含义</b>：0 从此意味着「扫完了<b>且每个文件都真的读进去了</b>」。
+ * 在此之前，读不动的文件只在 stdout 留一行提示而退出码照旧是 0 —— 而 CI 与脚本看的是退出码，
+ * 于是「我没能读它」在自动化里等于「通过」。留痕是给人看的，退出码是给机器看的，两者缺一不可。
+ *
+ * <p>🔴 <b>不动现有约定</b>：发现真问题时<b>不降级</b>成 4 —— 1 仍然优先。
+ * 4 只在「没发现需处理项，但有文件没能读进去」时出现。
  */
 public final class Main {
 
@@ -31,6 +39,8 @@ public final class Main {
     private static final int EXIT_OK = 0;
     private static final int EXIT_FOUND = 1;
     private static final int EXIT_USAGE = 2;
+    /** 有文件读不动 —— 「我没能读它」不许在自动化里等于「通过」（2026-09-10 加）。 */
+    private static final int EXIT_UNREADABLE = 4;
 
     /**
      * 全部输出走这里，以便控制字符编码。
@@ -110,6 +120,12 @@ public final class Main {
             if (d.severity().isActionable()) {
                 System.exit(EXIT_FOUND);
             }
+        }
+        // 🔴 顺序不能反：发现真问题时不降级成 4，1 优先（Mikko 拍的「只新增一个码、不动现有约定」）。
+        //    走到这里说明没有需处理项 —— 此时「有文件没能读进去」必须让 0 变成 4，
+        //    否则报告末尾那句「未发现 fastjson。」在 CI 里就是一句没有依据的「你是安全的」。
+        if (scanner.hasUnreadable()) {
+            System.exit(EXIT_UNREADABLE);
         }
         System.exit(EXIT_OK);
     }
@@ -279,7 +295,8 @@ public final class Main {
         out.println("  -h, --help    显示本帮助");
         out.println("  -v, --version 显示版本");
         out.println();
-        out.println("退出码：0 = 未发现需处理项；1 = 发现 CRITICAL/HIGH；2 = 用法错误");
+        out.println("退出码：0 = 未发现需处理项；1 = 发现 CRITICAL/HIGH；2 = 用法错误；");
+        out.println("        4 = 有文件读不动（0 表示「扫完了且每个文件都真的读进去了」）");
         out.println();
         out.println("示例：");
         out.println("  java -jar fastjson-check.jar ./app.jar");

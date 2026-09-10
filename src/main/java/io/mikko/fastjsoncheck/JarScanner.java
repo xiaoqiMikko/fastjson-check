@@ -55,6 +55,43 @@ public class JarScanner {
     private final List<String> warnings = new ArrayList<String>();
     private int scannedArchives;
 
+    /**
+     * 有多少个文件是<b>没能读进去</b>的 —— 调用方据它把退出码抬到 4（2026-09-10 加）。
+     *
+     * <p>🔴 <b>为什么是计数器而不是去匹配告警文案</b>：文案改一个字，匹配式判据就安静失效。
+     * 判据和产生它的那行代码必须绑在同一个符号上。
+     * （㊷ 那轮 log4j-check 的教训：只给一个调用点加了计数，同类里还有 3 处裸的
+     * {@code warnings.add}，于是告警照常打印、退出码照常是 0 —— 补丁式的修法，
+     * 漏掉的那一处正是会静默放过的那条路径。所以这里收敛成唯一入口 {@link #warnUnreadable}。）
+     *
+     * <p>🔴 <b>什么算、什么不算</b>：算的是「我<b>没能</b>读」（不是 zip、截断、IO 失败、目录读不了）；
+     * <b>不算</b>「我<b>选择</b>不读」（嵌套超深、嵌套包过大）—— 那是有意的防御策略，不是失败。
+     * 把有意跳过也算成读不动，会造出一批永远消不掉的假告警，而
+     * <b>假告警多了真告警就没人看</b>（这正是 ㊷ 判据 3 用「合法空 jar 不许报 4」守的东西）。
+     */
+    private int unreadable;
+
+    /** 有没有文件是没能读进去的。 */
+    public boolean hasUnreadable() {
+        return unreadable > 0;
+    }
+
+    /** 没能读进去的文件数。 */
+    public int unreadableCount() {
+        return unreadable;
+    }
+
+    /**
+     * 「读不动」类告警的<b>唯一入口</b> —— 留痕与计数在同一处发生，不会只做一半。
+     *
+     * <p>留痕是给人看的，退出码是给机器看的，<b>两者缺一不可</b>：
+     * 2026-09-10 之前本工具留痕齐全而退出码是 0，于是「我没能读它」在 CI 里等于「通过」。
+     */
+    private void warnUnreadable(String message) {
+        warnings.add(message);
+        unreadable++;
+    }
+
     public List<Detection> detections() {
         return detections;
     }
@@ -85,7 +122,7 @@ public class JarScanner {
     private void scanDirectory(File dir) {
         File[] children = dir.listFiles();
         if (children == null) {
-            warnings.add("目录无法读取：" + dir.getPath());
+            warnUnreadable("目录无法读取：" + dir.getPath());
             return;
         }
         for (File child : children) {
@@ -103,7 +140,7 @@ public class JarScanner {
             in = new FileInputStream(file);
             scanArchiveStream(in, file.getPath(), file.getName(), 0, false);
         } catch (IOException e) {
-            warnings.add("读取失败 " + file.getPath() + "：" + e.getMessage());
+            warnUnreadable("读取失败 " + file.getPath() + "：" + e.getMessage());
         } finally {
             closeQuietly(in);
         }
@@ -156,7 +193,7 @@ public class JarScanner {
             pin.unread(head, 0, got);
         }
         if (!looksLikeZip(head, got)) {
-            warnings.add("这个文件读不动，不是有效的 zip/jar：" + location
+            warnUnreadable("这个文件读不动，不是有效的 zip/jar：" + location
                     + "（截断、加密，或其实是个 HTML 错误页）—— 🔴 这不等于「里面没有 fastjson」");
             return;
         }
@@ -209,7 +246,7 @@ public class JarScanner {
         //    文件魔数是对的、ZipInputStream 也不抛异常,只是零条目。
         //    合法的空 zip 以 PK 05 06 开头(一条 22 字节的 EOCD 记录),那是真的空,不报。
         if (entries == 0 && !(head[2] == 5 && head[3] == 6)) {
-            warnings.add("这个文件魔数像 zip，但一个条目都解不出来(多半是截断或下载不全)：" + location
+            warnUnreadable("这个文件魔数像 zip，但一个条目都解不出来(多半是截断或下载不全)：" + location
                     + " —— 🔴 这不等于「里面没有 fastjson」");
             return;
         }
@@ -232,7 +269,7 @@ public class JarScanner {
                 scanArchiveStream(new ByteArrayInputStream(na.content), childLocation, childName,
                         depth + 1, fatJarContext);
             } catch (IOException e) {
-                warnings.add("嵌套包读取失败 " + childLocation + "：" + e.getMessage());
+                warnUnreadable("嵌套包读取失败 " + childLocation + "：" + e.getMessage());
             }
         }
     }
