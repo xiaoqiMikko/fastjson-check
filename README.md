@@ -46,6 +46,11 @@
 👉 **对 1.x 用户的实际影响**：升级到 **1.2.84** 是成本最低的处置（同分支小版本，通常无需改代码），
 不必被迫立刻做 fastjson2 的大版本迁移。本工具已按此给出建议。
 
+> ⚠️ **前提是 JDK 8 及以上**(2026-10-14 实测):1.2.84 的 274 个 class 全是 Java 8 字节码(major 52),
+> 1.2.83 是 Java 5(major 49)。在 JDK 7(Zulu 7u352)上 `javac` 只给警告、退出码 0,运行时直接抛
+> `UnsupportedClassVersionError: com/alibaba/fastjson/JSON : Unsupported major.minor version 52.0`。
+> 另:1.2.84 里的 `JSON.VERSION` 常量仍是 `"1.2.83"`,按它判版本会看错;本工具读的是 `pom.properties`,不受影响。
+
 而最麻烦的一点是：
 
 > fastjson 通常是**传递依赖** —— 没人主动装它，它是被别的库捎带进来的。
@@ -277,13 +282,26 @@ that **no patch will ever ship**, and that migrating to fastjson2 is the only op
 1.2.83 shipped in May 2022. The 1.x branch then saw **no commits for four years** —
 1.2.84 was cut specifically for this vulnerability.
 
-**Why it went unnoticed:** it was a *silent* release. The 1.2.83 release is titled
-"（安全修复）" — *security fix*. The 1.2.84 release is titled merely "1.2.84版本发布"
-and never mentions security, so trackers and media did not pick it up.
+**Its release title does not say "security":** the 1.2.83 release is titled
+"（安全修复）" — *security fix* — while 1.2.84 is titled merely "1.2.84版本发布".
+**The body does say it**, though: a full `Security Fixes` section lists the four AutoType
+hardenings, and it has been there since release day (Wayback snapshot `20260729094935`).
+Why trackers and media mostly have not caught up, I have not found out, and I will not guess.
+
+> 📌 Corrected 2026-10-14: this paragraph used to say the release "never mentions security,
+> so trackers and media did not pick it up". The Chinese section was corrected on 2026-08-14;
+> this English copy was missed until now.
 
 👉 **What this means for you:** upgrading to **1.2.84** is a patch-level bump on the same
 branch and usually requires no code changes. You are not forced into an immediate
 fastjson2 major migration. This tool recommends accordingly.
+
+> ⚠️ **Requires JDK 8 or later** (tested 2026-10-14): all 274 classes in 1.2.84 are Java 8
+> bytecode (major 52), while 1.2.83 is Java 5 (major 49). On JDK 7 (Zulu 7u352) `javac` only warns
+> and exits 0, then the program fails at runtime with
+> `UnsupportedClassVersionError: com/alibaba/fastjson/JSON : Unsupported major.minor version 52.0`.
+> Also: the `JSON.VERSION` constant in 1.2.84 still reads `"1.2.83"`. This tool reads
+> `pom.properties` instead and is not affected.
 
 The hard part:
 

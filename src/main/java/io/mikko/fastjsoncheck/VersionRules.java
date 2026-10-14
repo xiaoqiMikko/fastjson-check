@@ -24,7 +24,8 @@ package io.mikko.fastjsoncheck;
  * <p><b>fastjson 1.x（com.alibaba:fastjson）</b>
  * <ul>
  *   <li>1.2.84 及以上：<b>已修复 CVE-2026-16723</b>，是 1.x 用户成本最低的处置路径
- *       （同分支小版本升级，通常无需改代码）。</li>
+ *       （同分支小版本升级，通常无需改代码）。<b>前提是运行在 JDK 8 及以上</b>：1.2.84 的 class 是 Java 8 字节码
+ *       （major 52，1.2.83 是 49），JDK 7 上加载即抛 UnsupportedClassVersionError（2026-10-14 实测 Zulu 7u352）。</li>
  *   <li>1.2.68 ~ 1.2.83：CVE-2026-16723，CVSS 9.0 远程代码执行。
  *       <b>默认配置即可利用</b>，无需开启 AutoType、无需 classpath gadget、无需认证。
  *       官方公告 2026-07-21，数日内即出现在野利用，主要针对 Spring Boot fat-JAR 部署。</li>
@@ -99,6 +100,8 @@ public final class VersionRules {
                         "处置按成本从低到高："
                                 + "①（推荐，改动最小）升级至 fastjson " + FASTJSON1_FIXED
                                 + " —— 这是官方 2026-07-29 发布的修复版，同分支小版本升级，通常无需改代码。"
+                                + "前提：运行在 JDK 8 及以上 —— 1.2.84 的 class 是 Java 8 字节码，"
+                                + "JDK 7 及以下加载即抛 UnsupportedClassVersionError，这条路走不通；"
                                 + "注意它的 release 标题未标注安全修复（正文有 Security Fixes 章节），"
                                 + "多数安全通告至今仍称“无补丁”，那是过时信息；"
                                 + "② 长期方案：迁移至 fastjson2 " + FASTJSON2_FIXED + " 或更高版本；"
@@ -108,7 +111,7 @@ public final class VersionRules {
             return new Verdict(Severity.HIGH,
                     "fastjson " + version + " 低于 1.2.68，不受 CVE-2026-16723 影响，但存在历史 AutoType 反序列化 RCE",
                     "不受本次 CVE 影响，但 1.2.24 / 1.2.47 / 1.2.62 / 1.2.66 等历史 AutoType 绕过链适用于该版本。"
-                            + "建议升级至 fastjson " + FASTJSON1_FIXED + "，或迁移至 fastjson2 "
+                            + "建议升级至 fastjson " + FASTJSON1_FIXED + "（需 JDK 8 及以上），或迁移至 fastjson2 "
                             + FASTJSON2_FIXED + " 或更高版本。");
         }
 
